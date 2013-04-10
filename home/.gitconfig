@@ -1,0 +1,160 @@
+[include]
+  # For username / creds / etc
+  path = ~/.gitconfig.local
+
+[status]
+  submodulesummary = true # meh, why not.  don't use submodules unless you have to
+
+[push]
+  default = current # this should be the safe default.  Without this, by default, 'git push' will push all branches, possibly pushing unintended changes
+
+[diff]
+  renames = true
+  noprefix = true # drops the annoying a/filename.foo b/filename.foo prefixes
+
+[merge]
+  # This is REALLY useful.  Adds 'original_version' to diffs like so:
+  # <<<<<<<
+  # OUR_VERSION
+  # |||||||
+  # ORIGNINAL_VERSION
+  # =======
+  # THEIR_VERSION
+  # >>>>>>>
+  conflictstyle = diff3
+  defaultToUpstream = true
+
+[core]
+  excludesfile = .gitignore.local
+  editor = vim
+
+[format]
+  pretty = fuller # more detail for "git show"
+
+[color]
+  ui = true # everybody loves color (except for Linus :( )
+
+[column]
+  # This lets "git stat" stack multiple filenames per row (like vanilla 'ls')
+  ui = always
+
+[alias]
+  # Short Forms
+  amend        = commit --amend
+  b            = !git branch -vv
+  ba           = !git branch -avv
+  br           = branch
+  cma          = commit -a -m
+  co           = checkout
+  dc           = diff --cached
+  d            = diff --word-diff
+  ff           = merge --ff-only
+  fixup        = commit --fixup
+  pick         = cherry-pick
+  st           = status --short --branch -- .
+  stat         = status --short --branch
+
+  #list all aliases
+  la = "!git config -l | grep alias | cut -c 7-"
+
+  # diffs
+  #list modified files in last commit
+  dl = "!git ll -1"
+  #diff last commit
+  dlc = diff --cached HEAD^
+  dr  = "!f() { git diff "$1"^.."$1"; }; f"
+  diffr  = "!f() { git diff "$1"^.."$1"; }; f"
+
+  # Awesome.  Compares current branch to origin/master or a branch of your choosing, displaying commits to/from the other branch
+  # Try "git vs --stat" as well
+  # TODO: clean this up using only http://schacon.github.com/git/git.html#_low_level_commands_plumbing and put it in git-versus
+  vs = "! \
+    O=(); \
+    SEEN_DD=false; \
+    unset A; \
+    while [ ! -z \"$1\" ]; do \
+      if [[ \"$1\" =~ ^- ]] || $SEEN_DD; then \
+        O=(\"${O[@]}\" $1); \
+        if [ \"$1\" == \"--\" ]; then SEEN_DD=true; fi; \
+      elif [ -z \"$A\" ]; then \
+        A=\"$1\"; \
+      else \
+        O=(\"${O[@]}\" \"$1\"); \
+      fi; \
+      shift; \
+    done; \
+    if ! $SEEN_DD; then O=(\"${O[@]}\" \"--\"); fi; \
+    A=\"${A-origin/master}\"; \
+    B=\"$(git symbolic-ref HEAD --short)\"; \
+    echo From \"$A..$B:\"; \
+    git --no-pager hist $A..$B \"${O[@]}\"; \
+    echo; \
+    echo From \"$B..$A:\"; \
+    git --no-pager hist $B..$A \"${O[@]}\"; \
+    "
+
+  # Fetch-Rebase: pure AWESOMEness.
+  # Fetches 'origin' and rebases the current branch on top of origin/master.
+  # Uses 'stash' intelligently to avoid blocking on trivial working-dir changes
+  frb = "! \
+    git fetch; \
+    if git diff-index --quiet --ignore-submodules HEAD --; then \
+      git rebase origin/master \"$@\"; \
+    else \
+      git stash save -q 'Fetch-Rebase Stashed Changes'; \
+      git rebase origin/master \"$@\"; \
+      git stash pop -q; \
+    fi; true"
+
+  # List files ignored by .gitignore and friends
+  show-ignored = "! \
+    git clean -ndX | \
+    perl -pe 's/Would remove/ignored:/'"
+
+  find-children = "! \
+    REVSPEC="$(git rev-parse "$1")" || exit; \
+    git rev-list $REVSPEC^.. --parents | \
+      grep $REVSPEC | \
+      cut -d' ' -f1 | \
+      xargs git show -s --format=histp --graph --color=always | \
+      grep .; \
+    true"
+
+  # Show recently edited files. This is being eclipsed by 'hstat'
+  recent = "! \
+    git show origin/master.. --oneline --stat=200 --color  | \
+    egrep '^ [^1-9]' | \
+    sort | \
+    column -s'|' -t"
+
+  # Meh. ...
+  autosquash   = rebase -i HEAD~20 --autosquash --preserve-merges
+  sub          = submodule
+  subs         = submodule foreach git
+  stage        = add -u
+  unstage      = reset HEAD
+  new-workdir  = "! git-new-workdir "
+  tp           = !git push -nv && git pull -nv
+
+  # stats & history
+  hlog    = !git log --color=always --date=relative --pretty=hist
+
+  ghist   = !git hlog -g --pretty=ghist
+  hist    = !git hlog --graph --date-order
+  h       = !git --no-pager hist -10
+  hh      = !git --no-pager hist -20
+  hhh     = !git --no-pager hist
+
+  histstat= "!git h --stat=160,160 \"$@\" | perl -ne '/([|*])/; if($1 eq \"*\") { print } else { m/[|] *[0-9]/ and print }'; true"
+  hstat   = !git --no-pager histstat -10
+  hhstat  = !git --no-pager histstat -20
+  hhhstat = !git --no-pager histstat
+
+  hstats  = !git h --shortstat --dirstat=changes,10
+  hhstats = !git hh --shortstat --dirstat=changes,10
+  hhhstats= !git hhh--shortstat --dirstat=changes,10
+
+[pretty]
+  hist      = "%C(bold yellow)%h %C(bold green)(%ad) %C(reset)%C(red)[%an] %C(reset)%s %C(bold red)%d%C(reset)"
+  histp     = "%C(bold yellow)%h %C(reset)%C(yellow)%p %C(bold green)(%ad) %C(reset)%C(red)[%an] %C(reset)%s %C(bold red)%d%C(reset)" # with parents
+  ghist     = "%C(bold red)%d %C(bold yellow)%gD %C(reset)%C(yellow)%h %C(reset)%aD %C(red)[%an] %C(green)%gs %C(reset)%s"
